@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "WA Filter",
+  "version": "1.0.0",
+  "description": "Oculta mensagens no WhatsApp Web",
+  "action": {
+    "default_popup": "index.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["src/content.ts"]
+    }
+  ]
+}
