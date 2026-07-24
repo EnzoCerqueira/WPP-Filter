@@ -9,7 +9,7 @@
   "content_scripts": [
     {
       "matches": ["https://web.whatsapp.com/*"],
-      "js": ["src/content.ts"]
+      "js": ["assets/content.js"]
     }
   ]
 }
