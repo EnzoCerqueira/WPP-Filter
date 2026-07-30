@@ -21,8 +21,20 @@ function App() {
     const novaLista = [...bloqueados, novoNome.trim()];
     setBloqueados(novaLista);
     setNovoNome("");
+
+    //rastreadores
+    console.log("Tentando salvar:", novaLista);
+    console.log(
+      "API do Chrome disponível?",
+      typeof chrome !== "undefined" ? chrome : "NÃO",
+    );
+
     if (typeof chrome !== "undefined" && chrome.storage) {
-      chrome.storage.local.set({ listaBloqueados: novaLista });
+      chrome.storage.local.set({ listaBloqueados: novaLista }, () => {
+        console.log("Salvo com sucesso no banco de dados✅!")
+      });
+    }else{
+      console.log("API do Chrome não disponível ou permissão negada ❌");
     }
   };
 

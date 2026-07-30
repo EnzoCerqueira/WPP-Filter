@@ -2,6 +2,24 @@ declare const chrome: any;
 
 let nomesBloqueados: string[] = [];
 
+const style = document.createElement("style");
+style.innerHTML = `
+.wpp-filter-hidden {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    pointer-events: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+.wpp-filter-oculto * {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }`;
+document.head.appendChild(style);
+
 if (typeof chrome !== "undefined" && chrome.storage) {
   chrome.storage.local.get(["listaBloqueados"], (result: any) => {
     if (result.listaBloqueados) {
@@ -12,61 +30,82 @@ if (typeof chrome !== "undefined" && chrome.storage) {
 
   chrome.storage.onChanged.addListener((changes: any, namespace: any) => {
     if (namespace === "local" && changes.listaBloqueados) {
-      nomesBloqueados = changes.listaBloqueados.newValue;
+      nomesBloqueados = changes.listaBloqueados.newValue || [];
       ocultarMensagens();
     }
   });
 }
 
 function ocultarMensagens(): void {
-  if (nomesBloqueados.length === 0) return;
+  const linhas = document.querySelectorAll<HTMLElement>(
+    "#main div[role='row']",
+  );
 
-  const linhas = document.querySelectorAll<HTMLElement>("div[role='row']");
+  if (linhas.length === 0) return;
+
+  if (nomesBloqueados.length === 0) {
+    linhas.forEach((linha) => {
+      linha.classList.remove("wpp-filter-hidden");
+    });
+    return;
+  }
+
+  const nomesNormalizados = nomesBloqueados.map((nome) => nome.toLowerCase());
   let ocultandoBlocoAtual = false;
 
   linhas.forEach((linha) => {
     const autorEl = linha.querySelector<HTMLElement>("[data-testid='author']");
-    if (autorEl && autorEl.textContent) {
-      ocultandoBlocoAtual = nomesBloqueados.includes(autorEl.textContent);
-    }
-
     const msgContainer = linha.querySelector<HTMLElement>(
       "[data-pre-plain-text]",
     );
-    if (msgContainer) {
-      const metadados = msgContainer.getAttribute("data-pre-plain-text");
-      if (metadados) {
-        const temAlvoAqui = nomesBloqueados.some((nome) =>
-          metadados.includes(`] ${nome}:`),
-        );
-        if (temAlvoAqui) {
-          ocultandoBlocoAtual = true;
-        } else if (autorEl) {
-          ocultandoBlocoAtual = false;
-        }
-      }
-    }
-
     const elementoComId = linha.querySelector<HTMLElement>("div[data-id]");
-    if (elementoComId) {
+
+    // Failsafe (Metadados invisíveis)
+    if (msgContainer) {
+      const metadados =
+        msgContainer.getAttribute("data-pre-plain-text")?.toLowerCase() || "";
+      const temAlvoAqui = nomesNormalizados.some((nome) =>
+        metadados.includes(nome),
+      );
+      ocultandoBlocoAtual = temAlvoAqui;
+    }
+    // 2. Fallback visual para o nome
+    else if (autorEl && autorEl.textContent) {
+      const nomeAutor = autorEl.textContent.toLowerCase();
+      ocultandoBlocoAtual = nomesNormalizados.includes(nomeAutor);
+    }
+    // 3. Trava de segurança: Nunca ocultar a SUA PRÓPRIA mensagem (true_)
+    else if (elementoComId) {
       const dataId = elementoComId.getAttribute("data-id");
       if (dataId && dataId.startsWith("true_")) {
         ocultandoBlocoAtual = false;
       }
-    } else {
-      ocultandoBlocoAtual = false;
     }
+
     if (ocultandoBlocoAtual) {
-      if (linha.style.display !== "none") {
-        linha.style.display = "none";
-        console.log(
-          "🕵️ WPP Filter: Mídia/Mensagem bloqueada por escaneamento de bloco!",
+      linha.classList.add("wpp-filter-hidden");
+
+      
+      const possivelAvatarIrmao =
+        linha.previousElementSibling as HTMLElement | null;
+      if (possivelAvatarIrmao?.querySelector("img")) {
+        possivelAvatarIrmao.classList.add("wpp-filter-hidden");
+      }
+
+      const avatarNaLinha = linha.querySelector(
+        "img[src*='pps.whatsapp.net'], [data-testid='avatar'], [data-testid='default-user']",
+      );
+      if (!avatarNaLinha) {
+        const grupoPai = linha.closest(
+          "div[tabindex], div[data-id]",
+        )?.parentElement;
+        const avatarNoGrupo = grupoPai?.querySelector<HTMLElement>(
+          "img[src*='pps.whatsapp.net'], [data-testid='avatar'], [data-testid='default-user']",
         );
+        avatarNoGrupo?.classList.add("wpp-filter-hidden");
       }
-      const mediaEl = linha.querySelector<HTMLElement>("img");
-      if (mediaEl && mediaEl.style.display === "none") {
-        mediaEl.style.display = "";
-      }
+    } else {
+      linha.classList.remove("wpp-filter-hidden");
     }
   });
 }
